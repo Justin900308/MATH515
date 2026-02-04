@@ -92,85 +92,86 @@ def optimizeWithPGD(x0, func_f, func_g, grad_f, prox_g, beta_f, tol=1e-6, max_it
 
 # Accelerated gradient descent
 # -----------------------------------------------------------------------------
-# def optimizeWithAGD(x0, func, grad, beta, tol=1e-6, max_iter=1000):
-#     """
-#     Optimize with Accelerated Gradient Descent Method
-#         min_x f(x)
-#     where f is beta smooth.
-#
-#     input
-#     -----
-#     x0 : array_like
-#         Starting point for the solver
-#     func : function
-#         Input x and return the function value
-#     grad : function
-#         Input x and return the gradient
-#     beta : float
-#         beta smoothness constant for the function
-#     tol : float, optional
-#         Gradient tolerance for terminating the solver.
-#     max_iter : int, optional
-#         Maximum number of iteration for terminating the solver.
-#
-#     output
-#     ------
-#     x : array_like
-#         Final solution
-#     obj_his : array_like
-#         Objective function value convergence history
-#     err_his : array_like
-#         Norm of gradient convergence history
-#     exit_flag : int
-#         0, norm of gradient below `tol`
-#         1, exceed maximum number of iteration
-#         2, others
-#     """
-#     # initial information
-#     x = x0.copy()
-#     y = x0.copy()
-#     g = grad(y)
-#     t = 1.0
-#     #
-#     step_size = 1.0/beta
-#     # not recording the initial point since we do not have measure of the optimality
-#     obj_his = np.zeros(max_iter+1)
-#     err_his = np.zeros(max_iter+1)
-#     #
-#     obj_his[0] = func(x)
-#     err_his[0] = norm(g)
-#
-#     # start iteration
-#     iter_count = 0
-#     err = tol + 1.0
-#     while err >= tol:
-#         # proximal gradient descent step
-#         #####
-#         # TODO: complete the accelerate gradient step
-#         x_new = ???
-#         t_new = ???
-#         y_new = ???
-#         #####
-#         #
-#         # update information
-#         np.copyto(x, x_new)
-#         np.copyto(y, y_new)
-#         t = t_new
-#         g = grad(y)
-#         #
-#         obj = func(x_new)
-#         err = norm(g)
-#         #
-#         obj_his[iter_count + 1] = obj
-#         err_his[iter_count + 1] = err
-#         #
-#         # check if exceed maximum number of iteration
-#         iter_count += 1
-#         if iter_count >= max_iter:
-#             print('Proximal gradient descent reach maximum of iteration')
-#             return x, obj_his[:iter_count+1], err_his[:iter_count+1], 1
-#     #
-#     return x, obj_his[:iter_count+1], err_his[:iter_count+1], 0
+def optimizeWithAGD(x0, func, grad, beta, tol=1e-6, max_iter=1000):
+    """
+    Optimize with Accelerated Gradient Descent Method
+        min_x f(x)
+    where f is beta smooth.
+
+    input
+    -----
+    x0 : array_like
+        Starting point for the solver
+    func : function
+        Input x and return the function value
+    grad : function
+        Input x and return the gradient
+    beta : float
+        beta smoothness constant for the function
+    tol : float, optional
+        Gradient tolerance for terminating the solver.
+    max_iter : int, optional
+        Maximum number of iteration for terminating the solver.
+
+    output
+    ------
+    x : array_like
+        Final solution
+    obj_his : array_like
+        Objective function value convergence history
+    err_his : array_like
+        Norm of gradient convergence history
+    exit_flag : int
+        0, norm of gradient below `tol`
+        1, exceed maximum number of iteration
+        2, others
+    """
+    # initial information
+    x = x0.copy()
+    y = x0.copy()
+    g = grad(y)
+    t = 1.0
+    #
+    step_size = 1.0 / beta
+    # not recording the initial point since we do not have measure of the optimality
+    obj_his = np.zeros(max_iter + 1)
+    err_his = np.zeros(max_iter + 1)
+    #
+    obj_his[0] = func(x)
+    err_his[0] = norm(g)
+
+    # start iteration
+    iter_count = 0
+    err = tol + 1.0
+    while err >= tol:
+        # proximal gradient descent step
+        #####
+        # TODO: complete the accelerate gradient step
+        x_new = y - 1 / beta * g
+        t_new = (1 + np.sqrt(4 * t ** 2 + 1)) / 2
+        y_new = x_new + (t - 1) / t_new * (x_new - x)
+        #####
+        #
+        # update information
+        np.copyto(x, x_new)
+        np.copyto(y, y_new)
+        t = t_new
+        g = grad(y)
+        #
+        obj = func(x_new)
+        err = norm(g)
+        #
+        obj_his[iter_count + 1] = obj
+        err_his[iter_count + 1] = err
+        #
+        # check if exceed maximum number of iteration
+        iter_count += 1
+        if iter_count >= max_iter:
+            print('Proximal gradient descent reach maximum of iteration')
+            return x, obj_his[:iter_count + 1], err_his[:iter_count + 1], 1
+    #
+    return x, obj_his[:iter_count + 1], err_his[:iter_count + 1], 0
+
 
 # Accelerated proximal gradient descent
 # -----------------------------------------------------------------------------
@@ -229,9 +230,9 @@ def optimizeWithAPGD(x0, func_f, func_g, grad_f, prox_g, beta_f, tol=1e-6, max_i
     while err >= tol:
         #####
         z = y - 1 / beta_f * g
-        x_new = prox_g(z,1/beta_f)
-        t_new =(1+ np.sqrt( 1 + 4 * t ** 2)) /2
-        y_new = x_new + (t - 1)/t_new * (x_new - x)
+        x_new = prox_g(z, 1 / beta_f)
+        t_new = (1 + np.sqrt(1 + 4 * t ** 2)) / 2
+        y_new = x_new + (t - 1) / t_new * (x_new - x)
         #####
         #
         # update information
