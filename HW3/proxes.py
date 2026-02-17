@@ -2,6 +2,7 @@
 import numpy as np
 from scipy.optimize import bisect
 
+
 # =============================================================================
 # TODO Complete the following prox for simplex
 # =============================================================================
@@ -30,42 +31,35 @@ def prox_csimplex(z, k):
     # safe guard for k
     assert 0 <= k <= z.size, 'k: k must be between 0 and dimension of the input.'
 
-    # TODO do the computation here
-    # Hint: 1. construct the scalar dual object and use `bisect` to solve it.
-    # 2. obtain primal variable from optimal dual solution and return it.
-    #
-    return None
+    def derivative(v):
+        grad = -k
+        for i in range(z.size):
+            grad += np.minimum(1, np.maximum(0, z[i] - v))
+        return grad
+
+    ## use scipy to find the v_star
+    v_star = bisect(derivative, -10, 10)
+    X = np.zeros(z.size)
+    for i in range(z.size):
+        X[i] = np.minimum(1, np.maximum(0, z[i] - v_star))
+
+    return X
 
 
-def prox_l1(x, t):
-    """
-    regular l1 prox included for convenience
-    Note that you'll have to rescale the t input with the regularization parameter
-    """
-    y = np.zeros(x.size)
-    ind = np.where(np.abs(x) > t)
-    x_o = x[ind]
-    y[ind] = np.sign(x_o)*(np.abs(x_o) - t)
-    return y
+def prox_l1(sigma_Y, t):
+    sigma_X = np.zeros(sigma_Y.shape)
+    for i in range(len(sigma_Y)):
+        sigma_X[i] = np.maximum(0, sigma_Y[i] - t)
+    return sigma_X
 
 
 def rank_project(Y, k):
-    """	Prox of rank constrained matrices
-            argmin_M 1/2||M - Y||^2 s.t. rank(M)<=k
-
-
-    Parameters
-    ----------
-    Y : 2 dimensional array
-    k : positive integer
-
-    Returns
-    -------
-    2 dimensional array
-            rank projected version of Y
-    """
-    # TODO write this function
-    pass
+    U_y, sigma_y, Vt_y = np.linalg.svd(Y)
+    sigma_X = sigma_y[0:k]
+    sigma_X = np.hstack((sigma_X, np.zeros(len(sigma_y) - k)))  ## truncated singular values
+    Sigma_X = np.diag(sigma_X)
+    X = U_y @ Sigma_X @ Vt_y
+    return X
 
 
 def nuclear_prox(Y, t):
@@ -82,5 +76,9 @@ def nuclear_prox(Y, t):
     2 dimensional array
             proximal operator applied to Y
     """
-    # TODO write this function
-    pass
+    U_y, sigma_y, Vt_y = np.linalg.svd(Y)
+    sigma_X = prox_l1(sigma_y, t)
+    Sigma_X = np.diag(sigma_X)
+    X = U_y @ Sigma_X @ Vt_y
+
+    return X
