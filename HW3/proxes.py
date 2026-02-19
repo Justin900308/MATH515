@@ -39,17 +39,15 @@ def prox_csimplex(z, k):
 
     ## use scipy to find the v_star
     v_star = bisect(derivative, -10, 10)
-    X = np.zeros(z.size)
-    for i in range(z.size):
-        X[i] = np.minimum(1, np.maximum(0, z[i] - v_star))
-
+    # X = np.zeros(z.size)
+    # for i in range(z.size):
+    #     X[i] = np.minimum(1, np.maximum(0, z[i] - v_star))
+    X = np.minimum(1, np.maximum(0, z - v_star))
     return X
 
 
 def prox_l1(sigma_Y, t):
-    sigma_X = np.zeros(sigma_Y.shape)
-    for i in range(len(sigma_Y)):
-        sigma_X[i] = np.maximum(0, sigma_Y[i] - t)
+    sigma_X = np.maximum(0, sigma_Y - t)
     return sigma_X
 
 
