@@ -3,6 +3,7 @@ from numpy.linalg import norm
 from numpy.linalg import solve
 import numpy as np
 
+
 # =============================================================================
 # TODO Complete the following optimization algorithms
 #	* simple interior point method
@@ -55,25 +56,27 @@ def optimizeWithIP(x0, A, b, C, d, mu=1.0, rate=0.1, tol=1e-6, max_iter=1000):
     m = A.shape[0]
     k = C.shape[0]
     #
-    assert A.shape[1]==n, 'A: number of column is wrong.'
-    assert C.shape[1]==n, 'C: number of column is wrong.'
-    assert b.size==m, 'b: size of b must be m.'
-    assert d.size==k, 'd: size of d must be k.'
+    assert A.shape[1] == n, 'A: number of column is wrong.'
+    assert C.shape[1] == n, 'C: number of column is wrong.'
+    assert b.size == m, 'b: size of b must be m.'
+    assert d.size == k, 'd: size of d must be k.'
     #
     # setup the iterations
     x = x0.copy()
     r = b - A.dot(x)
     s = d - C.dot(x)
-    v = mu/s
-    z = np.hstack((x, v))
+    v = mu / s  ## here v is the dual
+    z = np.hstack((x, v))  ## the stack of primal and dual
     # id of primal and dual variable, easy access
     id_x = slice(n)
-    id_v = slice(n, n+k)
+    id_v = slice(n, n + k)
     # initialize KKT system and its Jacobian
-    F = np.zeros(n+k)
+    # F = np.zeros(n + k)
     # *************************************************************************
     # TODO: Fill in F -- the optimality conditions for primal and dual variables. 
-    # 
+    F1 = A.T @ (A @ x - b) + C.T @ v
+    F2 = v * (d - C @ x) - mu * np.ones(len(v))
+    F = np.hstack((F1, F2))
     # Notice that in the lecture we defined F to be a function of three arguments:
     # F(s, z, x). There are two notation changes here comparing to the class.
     # First, in this code x is x (as in class), but z = v (dual variable is called v, not z).
@@ -89,13 +92,19 @@ def optimizeWithIP(x0, A, b, C, d, mu=1.0, rate=0.1, tol=1e-6, max_iter=1000):
     # All of these are just differences in notation, overall we do exactly the same as Sasha did in class.
     #
     # *************************************************************************
-    dF = np.zeros((n+k, n+k))
     # *************************************************************************
     # TODO: Fill in dF
     # Hint: dF is a block-derivative of F(x, v) with respect to x and v:
     # dF = [d(F[id_x])/dx, d(F[id_x])/dv; d(F[id_v])/dx, d(F[id_v])/dv]
+    dF11 = A.T @ A
+    dF12 = C.T
+    dF21 = - np.diag(v) @ C
+    dF22 = np.diag(d - C @ x)
+    row1 = np.hstack((dF11, dF12))
+    row2 = np.hstack((dF21, dF22))
+    dF = np.vstack((row1, row2))
     # *************************************************************************
-    #
+
     # record the primal objective and error measure
     obj_his = np.zeros(max_iter)
     err_his = np.zeros(max_iter)
@@ -112,34 +121,43 @@ def optimizeWithIP(x0, A, b, C, d, mu=1.0, rate=0.1, tol=1e-6, max_iter=1000):
         # s+ has to be positive
         # *********************************************************************
         # TODO: Adjust alpha such that d - C(x + alpha dx) > 0
+
+        alpha = min(alpha, 0.99 * np.min((d - C @ x) / (np.abs(C @ dx))))
         # (In Sahsa's notation from class we want to make sure here that s > 0).
         # *********************************************************************
-        
+
         # v+ has to be positive
         # Adjust alpha such that v + alpha dv > 0 (done for you)
         ind = np.where(dv < 0.0)[0]
-        alpha = min(alpha, 0.99*np.min(-v[ind]/dv[ind]))
+        alpha = min(alpha, 0.99 * np.min(-v[ind] / dv[ind]))
         #
         # update variable
-        x += alpha*dx
-        v += alpha*dv
+        x += alpha * dx
+        v += alpha * dv
         #
         r = b - A.dot(x)
         s = d - C.dot(x)
         z = np.hstack((x, v))
         #
         # update mu
-        mu = rate*np.mean(v*s)
+        mu = rate * np.mean(v * s)
         #
         # update F and dF
         # *********************************************************************
         # TODO: update F and dF
         # Hint: Do not need to update all parts of dF
-        # F[id_x] = ?
-        # F[id_v] = ?
+        F[id_x] = A.T @ (A @ x - b) + C.T @ v
+        F[id_v] = v * (d - C @ x) - mu * np.ones(len(v))
+        dF11 = A.T @ A
+        dF12 = C.T
+        dF21 = - np.diag(v) @ C
+        dF22 = np.diag(d - C @ x)
+        row1 = np.hstack((dF11, dF12))
+        row2 = np.hstack((dF21, dF22))
+        dF = np.vstack((row1, row2))
         # *********************************************************************
         #
-        obj = 0.5*np.sum(r**2)
+        obj = 0.5 * np.sum(r ** 2)
         err = np.linalg.norm(F)
         obj_his[iter_count] = obj
         err_his[iter_count] = err
@@ -150,6 +168,7 @@ def optimizeWithIP(x0, A, b, C, d, mu=1.0, rate=0.1, tol=1e-6, max_iter=1000):
             return x, obj_his[:iter_count], err_his[:iter_count], 1
     #
     return x, obj_his[:iter_count], err_his[:iter_count], 0
+
 
 # =============================================================================
 # From previous homeworks:
@@ -204,21 +223,21 @@ def optimizeWithPGD(x0, func_f, func_g, grad_f, prox_g, beta_f, tol=1e-6, max_it
     x = x0.copy()
     g = grad_f(x)
     #
-    step_size = 1.0/beta_f
+    step_size = 1.0 / beta_f
     # not recording the initial point since we do not have measure of the optimality
     obj_his = np.zeros(max_iter)
     err_his = np.zeros(max_iter)
-    
+
     # start iteration
     iter_count = 0
     err = tol + 1.0
     while err >= tol:
         # proximal gradient descent step
-        x_new = prox_g(x - step_size*g, step_size)
+        x_new = prox_g(x - step_size * g, step_size)
         #
         # update information
         obj = func_f(x_new) + func_g(x_new)
-        err = norm(x - x_new)/step_size
+        err = norm(x - x_new) / step_size
         #
         np.copyto(x, x_new)
         g = grad_f(x)
@@ -233,6 +252,7 @@ def optimizeWithPGD(x0, func_f, func_g, grad_f, prox_g, beta_f, tol=1e-6, max_it
             return x, obj_his[:iter_count], err_his[:iter_count], 1
     #
     return x, obj_his[:iter_count], err_his[:iter_count], 0
+
 
 # Accelerated gradient descent
 # -----------------------------------------------------------------------------
@@ -276,22 +296,22 @@ def optimizeWithAGD(x0, func, grad, beta, tol=1e-6, max_iter=1000):
     g = grad(y)
     t = 1.0
     #
-    step_size = 1.0/beta
+    step_size = 1.0 / beta
     # not recording the initial point since we do not have measure of the optimality
-    obj_his = np.zeros(max_iter+1)
-    err_his = np.zeros(max_iter+1)
+    obj_his = np.zeros(max_iter + 1)
+    err_his = np.zeros(max_iter + 1)
     #
     obj_his[0] = func(x)
     err_his[0] = norm(g)
-    
+
     # start iteration
     iter_count = 0
     err = tol + 1.0
     while err >= tol:
         # proximal gradient descent step
-        x_new = y - step_size*g
-        t_new = 0.5*(1.0 + np.sqrt(1.0 + 4.0*t**2))
-        y_new = x_new + (t - 1.0)/t_new*(x_new - x)
+        x_new = y - step_size * g
+        t_new = 0.5 * (1.0 + np.sqrt(1.0 + 4.0 * t ** 2))
+        y_new = x_new + (t - 1.0) / t_new * (x_new - x)
         #
         # update information
         np.copyto(x, x_new)
@@ -309,9 +329,10 @@ def optimizeWithAGD(x0, func, grad, beta, tol=1e-6, max_iter=1000):
         iter_count += 1
         if iter_count >= max_iter:
             print('Proximal gradient descent reach maximum of iteration')
-            return x, obj_his[:iter_count+1], err_his[:iter_count+1], 1
+            return x, obj_his[:iter_count + 1], err_his[:iter_count + 1], 1
     #
-    return x, obj_his[:iter_count+1], err_his[:iter_count+1], 0
+    return x, obj_his[:iter_count + 1], err_his[:iter_count + 1], 0
+
 
 # Accelerated proximal gradient descent
 # -----------------------------------------------------------------------------
@@ -359,19 +380,19 @@ def optimizeWithAPGD(x0, func_f, func_g, grad_f, prox_g, beta_f, tol=1e-6, max_i
     g = grad_f(y)
     t = 1.0
     #
-    step_size = 1.0/beta_f
+    step_size = 1.0 / beta_f
     # not recording the initial point since we do not have measure of the optimality
     obj_his = np.zeros(max_iter)
     err_his = np.zeros(max_iter)
-    
+
     # start iteration
     iter_count = 0
     err = tol + 1.0
     while err >= tol:
         # proximal gradient descent step
-        x_new = prox_g(y - step_size*g, step_size)
-        t_new = 0.5*(1.0 + np.sqrt(1.0 + 4.0*t**2))
-        y_new = x_new + (t - 1.0)/t_new*(x_new - x)
+        x_new = prox_g(y - step_size * g, step_size)
+        t_new = 0.5 * (1.0 + np.sqrt(1.0 + 4.0 * t ** 2))
+        y_new = x_new + (t - 1.0) / t_new * (x_new - x)
         #
         # update information
         obj = func_f(x_new) + func_g(x_new)
@@ -392,6 +413,7 @@ def optimizeWithAPGD(x0, func_f, func_g, grad_f, prox_g, beta_f, tol=1e-6, max_i
             return x, obj_his[:iter_count], err_his[:iter_count], 1
     #
     return x, obj_his[:iter_count], err_his[:iter_count], 0
+
 
 # Gradient descent
 # -----------------------------------------------------------------------------
@@ -432,7 +454,7 @@ def optimizeWithGD(x0, func, grad, beta, tol=1e-6, max_iter=1000):
     # initial information
     x = np.copy(x0)
     g = grad(x)
-    step_size = 1.0/beta
+    step_size = 1.0 / beta
     #
     obj = func(x)
     err = norm(g)
@@ -442,12 +464,12 @@ def optimizeWithGD(x0, func, grad, beta, tol=1e-6, max_iter=1000):
     #
     obj_his[0] = obj
     err_his[0] = err
-    
+
     # start iterations
     iter_count = 0
     while err >= tol:
         # gradient descent step
-        x -= step_size*g
+        x -= step_size * g
         #
         # update function and gradient
         g = grad(x)
@@ -462,9 +484,10 @@ def optimizeWithGD(x0, func, grad, beta, tol=1e-6, max_iter=1000):
         # check if exceed maximum number of iteration
         if iter_count >= max_iter:
             print('Gradient descent reach maximum number of iteration.')
-            return x, obj_his[:iter_count+1], err_his[:iter_count+1], 1
+            return x, obj_his[:iter_count + 1], err_his[:iter_count + 1], 1
     #
-    return x, obj_his[:iter_count+1], err_his[:iter_count+1], 0
+    return x, obj_his[:iter_count + 1], err_his[:iter_count + 1], 0
+
 
 # Newton's Method
 # -----------------------------------------------------------------------------
@@ -513,7 +536,7 @@ def optimizeWithNT(x0, func, grad, hess, tol=1e-6, max_iter=100):
     #
     obj_his[0] = obj
     err_his[0] = err
-    
+
     # start iteration
     iter_count = 0
     while err >= tol:
@@ -534,6 +557,6 @@ def optimizeWithNT(x0, func, grad, hess, tol=1e-6, max_iter=100):
         # check if exceed maximum number of iteration
         if iter_count >= max_iter:
             print('Gradient descent reach maximum number of iteration.')
-            return x, obj_his[:iter_count+1], err_his[:iter_count+1], 1
+            return x, obj_his[:iter_count + 1], err_his[:iter_count + 1], 1
     #
-    return x, obj_his[:iter_count+1], err_his[:iter_count+1], 0
+    return x, obj_his[:iter_count + 1], err_his[:iter_count + 1], 0
